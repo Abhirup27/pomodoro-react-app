@@ -47,7 +47,8 @@ function App() {
         startTime: null,
         endTime: null,
     });
-    const [progress, setProgress] = useState(0); // Progress from 0 to 100
+    const [progress, setProgress] = useState(0);
+    const [sessionProgress, setSessionProgress] = useState(0);
     const [isActive, setIsActive] = useState(false);
     const [time, setTime] = useState<number>(0);
     const [pomodoroClock, setPomodoroClock] = useState<PomodoroClock>(
@@ -57,7 +58,7 @@ function App() {
             cyclesDone: 0, sessionsDone: 0, totalTime: 0,
         }
     );
-    const [cycles, setCycles] = useState<number>(DEFAULT_OPTIONS.CYCLES);
+    let nextSmallBreak = useRef<number>(0);
     //const startTime = useRef<Date>(null);
 
 
@@ -90,6 +91,7 @@ function App() {
             case PomoState.work:
                 if(time >= settings.intervalDuration * 60){
                    pomodoroClock.history.push({ state : PomoState.rest, time: new Date(), action: null });
+                   nextSmallBreak.current = new Date().getTime() + (settings.intervalDuration * 60)
                    setTime(0);
                    setProgress(0);
                     break;
@@ -122,6 +124,7 @@ function App() {
         if(!isActive && time == 0){
             pomodoroClock.startTime = new Date();
             pomodoroClock.history.push({state: PomoState.work, time: pomodoroClock.startTime, action: 'Start'});
+            nextSmallBreak.current =  new Date().getTime() + (settings.intervalDuration * 60)
         }
         else if(isActive && time > 0){
 
@@ -131,7 +134,9 @@ function App() {
         }
         else if(!isActive && time > 0){
             const lastState = pomodoroClock.history.length > 0 ? pomodoroClock.history.at(pomodoroClock.history.length - 1)!.state : PomoState.init;
+
             pomodoroClock.history.push({state: lastState, time: new Date(), action: 'Resume'});
+            nextSmallBreak.current =  new Date().getTime() + (settings.intervalDuration * 60)
         }
         setIsActive(prevState =>  !prevState);
     }
@@ -198,10 +203,10 @@ function App() {
         }
     };
 
-    function calcTimeinHHMMSS(){
-        const hrs = pomodoroClock.totalTime >= 3600 ? Math.floor(pomodoroClock.totalTime/3600) : 0;
-        const mins = pomodoroClock.totalTime % 3600 != 0 ? Math.floor((pomodoroClock.totalTime % 3600)/60) : 0;
-        const secs = (pomodoroClock.totalTime % 3600) % 60 != 0 ? Math.floor((pomodoroClock.totalTime % 3600) % 60) : 0;
+    function calcTimeinHHMMSS(time: number){
+        const hrs = time >= 3600 ? Math.floor(time/3600) : 0;
+        const mins = time % 3600 != 0 ? Math.floor((time % 3600)/60) : 0;
+        const secs = (time % 3600) % 60 != 0 ? Math.floor((time % 3600) % 60) : 0;
 
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
@@ -228,8 +233,8 @@ function App() {
             </div>
 
             <p>{pomodoroClock.history[pomodoroClock.history.length -1 ].state}</p>
-            <p>Total time: {calcTimeinHHMMSS()}
-            </p>
+            <p>Total time: {calcTimeinHHMMSS(pomodoroClock.totalTime)} </p>
+            {pomodoroClock.history[pomodoroClock.history.length -1].state == PomoState.work && <p>Next break: {new Date(nextSmallBreak.current).toISOString()} </p>}
             {pomodoroClock.history.length>1 ? <p>Start Time: {pomodoroClock.startTime?.getHours()}:{pomodoroClock.startTime?.getMinutes()}:{pomodoroClock.startTime?.getSeconds()}</p>: null }
 
             <div>

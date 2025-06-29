@@ -1,17 +1,20 @@
-import {useEffect, useRef, useState} from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 
+// Types and enums
 type Timestamp = {
     state: PomoState;
     time: Date;
     action: 'Start' | 'Resume' | 'Paused' | null;
+};
+
+enum PomoState {
+    INIT = 'init',
+    WORK = 'work',
+    REST = 'rest',
+    FINISHED = 'finished',
 }
-const enum PomoState {
-    'init' =  'init',
-    'work' =  'work' ,
-    'rest' = 'rest' ,
-    'finished' =  'finished'  ,
-}
+
 type PomodoroClock = {
     startTime: Date | null;
     endTime: Date | null;
@@ -19,252 +22,434 @@ type PomodoroClock = {
     history: Timestamp[];
     cyclesDone: number;
     sessionsDone: number;
-}
+};
 
-const DEFAULT_OPTIONS = {
+const DEFAULT_SETTINGS = {
     INTERVAL_DURATION: 25,
     S_BREAK: 5,
     L_BREAK: 15,
     SESSIONS: 4,
     CYCLES: 4,
 } as const;
+
 type Settings = {
-    cycles: number,
-    sessions: number,
+    cycles: number;
+    sessions: number;
     longBreak: number;
     smallBreak: number;
     intervalDuration: number;
     startTime?: Date | null;
     endTime?: Date | null;
-}
+};
+
+// Helper functions
+const formatTime = (seconds: number): string => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return [hrs, mins, secs]
+        .map(unit => unit.toString().padStart(2, '0'))
+        .join(':');
+};
+
+const calculateSessionDuration = (settings: Settings): number => (
+    (settings.cycles * settings.intervalDuration * 60) +
+    ((settings.cycles - 1) * settings.smallBreak * 60)
+);
+
+const ProgressCircle = ({ progress, label }: { progress: number, label: string }) => (
+    <div className="circle-container">
+        <div className="circle-base" />
+        <div
+            className="circle-progress"
+            style={{
+                background: `conic-gradient(#ff6347 0%, #B21807 ${progress}%, transparent ${progress}%, transparent 100%)`
+            }}
+        />
+        <div className="progress-text">
+            {progress.toFixed(1)}%
+            <div className="progress-label">{label}</div>
+        </div>
+    </div>
+);
+
 function App() {
+    // State management
     const [settings, setSettings] = useState<Settings>({
-        intervalDuration: DEFAULT_OPTIONS.INTERVAL_DURATION,
-        smallBreak: DEFAULT_OPTIONS.S_BREAK,
-        longBreak: DEFAULT_OPTIONS.L_BREAK,
-        sessions: DEFAULT_OPTIONS.SESSIONS,
-        cycles: DEFAULT_OPTIONS.CYCLES,
+        intervalDuration: DEFAULT_SETTINGS.INTERVAL_DURATION,
+        smallBreak: DEFAULT_SETTINGS.S_BREAK,
+        longBreak: DEFAULT_SETTINGS.L_BREAK,
+        sessions: DEFAULT_SETTINGS.SESSIONS,
+        cycles: DEFAULT_SETTINGS.CYCLES,
         startTime: null,
         endTime: null,
     });
+
     const [progress, setProgress] = useState(0);
     const [sessionProgress, setSessionProgress] = useState(0);
+    const [totalProgress, setTotalProgress] = useState(0);
     const [isActive, setIsActive] = useState(false);
-    const [time, setTime] = useState<number>(0);
-    const [pomodoroClock, setPomodoroClock] = useState<PomodoroClock>(
-        {
-            startTime: null, endTime: null,
-            history: [{state: PomoState.init, time: new Date(), action: null}],
-            cyclesDone: 0, sessionsDone: 0, totalTime: 0,
-        }
-    );
-    let nextSmallBreak = useRef<number>(0);
-    let remainingRest = useRef<number>(0);
-    //const startTime = useRef<Date>(null);
+    const [time, setTime] = useState(0);
 
+    const [pomodoroClock, setPomodoroClock] = useState<PomodoroClock>({
+        startTime: null,
+        endTime: null,
+        history: [{ state: PomoState.INIT, time: new Date(), action: null }],
+        cyclesDone: 0,
+        sessionsDone: 0,
+        totalTime: 0,
+    });
 
-
+    // Refs
+    const nextBreak = useRef<number>(0);
+    const remainingRest = useRef<number>(0);
+    const totalSessionTime = useRef<number>(0);
+    // Timer effect
     useEffect(() => {
         let interval: number | undefined;
 
-        if(isActive){
-            interval = setInterval( ()=> {
-                setTime(prevTime => prevTime + 1)
-                pomodoroClock.totalTime += 1;
-            }, 1000)
-        } else if (!isActive && time !== 0) {
-            clearInterval(interval);
+        if (isActive) {
+            interval = setInterval(() => {
+                setTime(prev => prev + 1);
+                setPomodoroClock(prev => ({ ...prev, totalTime: prev.totalTime + 1 }));
+            }, 1000);
         }
+
         return () => clearInterval(interval);
-    }, [isActive, time]);
+    }, [isActive]);
 
+    // Session duration calculation
     useEffect(() => {
+        if (isActive) {
+            totalSessionTime.current = calculateSessionDuration(settings);
+        } else {
+            nextBreak.current = Date.now() + settings.intervalDuration * 60 * 1000 - time;
+        }
+    }, [settings, isActive]);
 
-        const currentStateTime = pomodoroClock.sessionsDone > 0 ?
-            pomodoroClock.cyclesDone > 0 ?
-                (time - (pomodoroClock.sessionsDone * (settings.longBreak *60)) + (pomodoroClock.cyclesDone * settings.smallBreak * 60) + ( pomodoroClock.sessionsDone * (settings.cycles * (settings.smallBreak * 60))))
-                : (time - (pomodoroClock.sessionsDone * (settings.longBreak *60)) + ( pomodoroClock.sessionsDone * (settings.cycles * (settings.smallBreak * 60))))
-                : pomodoroClock.cyclesDone > 0 ? time - (pomodoroClock.cyclesDone * settings.smallBreak * 60) : time;
+    // Timer logic
+    useEffect(() => {
+        if (!isActive) return;
 
-        //console.log(pomodoroClock.history[pomodoroClock.history.length - 1].state);
+        const currentState = pomodoroClock.history.at(-1)?.state || PomoState.INIT;
+        const longBreakSec = settings.longBreak * 60;
+        const intervalSec = settings.intervalDuration * 60;
+        const smallBreakSec = settings.smallBreak * 60;
 
-        switch(pomodoroClock.history[pomodoroClock.history.length - 1].state) {
-            case PomoState.work:
-                if(time >= settings.intervalDuration * 60){
-                   pomodoroClock.history.push({ state : PomoState.rest, time: new Date(), action: null });
-                   nextSmallBreak.current = new Date().getTime() + (settings.intervalDuration * 60 * 1000)
-                   setTime(0);
-                   setProgress(0);
+        const updateTotalProgress = () => {
+            setTotalProgress((pomodoroClock.totalTime/((pomodoroClock.endTime!.getTime() - pomodoroClock.startTime!.getTime())/1000)) * 100)
+        }
+        const updateSessionProgress = () => {
+            const completedBlocks = pomodoroClock.sessionsDone *
+                (totalSessionTime.current + longBreakSec);
+            let timeInSession = pomodoroClock.totalTime - completedBlocks;
+
+            if (timeInSession < 0) timeInSession = 0;
+
+            //cannot go past 100
+            const progressValue = Math.min(
+                100,
+                (timeInSession / totalSessionTime.current) * 100
+            );
+
+            setSessionProgress(progressValue);
+        };
+
+        switch (currentState) {
+            case PomoState.WORK:
+                if (time >= intervalSec) {
+                    // End work session
+                    const newHistory = [
+                        ...pomodoroClock.history,
+                        { state: PomoState.REST, time: new Date(), action: null }
+                    ];
+
+                    setPomodoroClock(prev => ({
+                        ...prev,
+                        history: newHistory
+                    }));
+
+                    nextBreak.current = Date.now() + intervalSec * 1000;
+                    setTime(0);
+                    setProgress(0);
                     break;
                 }
-                setProgress((time/(settings.intervalDuration * 60)) * 100);
+
+                setProgress((time / intervalSec) * 100);
+                updateSessionProgress();
+                updateTotalProgress();
                 break;
-                case PomoState.rest:
-                    if(pomodoroClock.cyclesDone < settings.cycles){
-                        if(time >= settings.smallBreak * 60){
-                            pomodoroClock.cyclesDone++;
-                            pomodoroClock.history.push({ state : PomoState.work, time: new Date(), action: null });
-                            setTime(0);
-                            setProgress(0);
-                            break;
-                        }
-                        setProgress((time/(settings.smallBreak * 60)) * 100);
-                        remainingRest.current = settings.smallBreak * 60 - time;
-                        break;
-                    }
-                    if(pomodoroClock.cyclesDone >= settings.cycles){
-                        if(time >= settings.longBreak * 60){
-                            pomodoroClock.cyclesDone=0; pomodoroClock.sessionsDone++;
-                            pomodoroClock.history.push({ state : PomoState.work, time: new Date(), action: null });
-                            setTime(0);
-                            setProgress(0);
-                            break;
-                        }
-                        setProgress((time/(settings.longBreak * 60)) * 100);
-                        remainingRest.current = settings.longBreak * 60 - time;
+
+            case PomoState.REST:
+                if (pomodoroClock.cyclesDone < settings.cycles - 1) {
+                    // Short break logic
+                    if (time >= smallBreakSec) {
+                        const newHistory = [
+                            ...pomodoroClock.history,
+                            { state: PomoState.WORK, time: new Date(), action: null }
+                        ];
+
+                        setPomodoroClock(prev => ({
+                            ...prev,
+                            history: newHistory,
+                            cyclesDone: prev.cyclesDone + 1
+                        }));
+
+                        setTime(0);
+                        setProgress(0);
                         break;
                     }
 
+                    setProgress((time / smallBreakSec) * 100);
+                    updateSessionProgress();
+                    updateTotalProgress();
+                    remainingRest.current = smallBreakSec - time;
                     break;
+                }
+                else {
+                    // Long break logic
+                    if (pomodoroClock.sessionsDone >= settings.sessions - 1) {
 
-                    case PomoState.finished:
+                        setPomodoroClock(prev => ({
+                            ...prev,
+                            history: [
+                                ...prev.history,
+                                { state: PomoState.FINISHED, time: new Date(), action: null }
+                            ]
+                        }));
                         break;
+                    }
+
+                    if (time >= longBreakSec) {
+                        // End long break
+                        setPomodoroClock(prev => ({
+                            ...prev,
+                            history: [
+                                ...prev.history,
+                                { state: PomoState.WORK, time: new Date(), action: null }
+                            ],
+                            cyclesDone: 0,
+                            sessionsDone: prev.sessionsDone + 1
+                        }));
+
+                        setTime(0);
+                        setSessionProgress(0);
+                        setProgress(0);
+                        break;
+                    }
+
+                    setProgress((time / longBreakSec) * 100);
+                    setSessionProgress(0);
+                    updateTotalProgress();
+                    remainingRest.current = longBreakSec - time;
+                    break;
+                }
+
+            case PomoState.FINISHED:
+
+                break;
+        }
+    }, [time, isActive, pomodoroClock, settings]);
+
+    // Timer control
+    const toggleTimer = () => {
+        const sessionDuration = calculateSessionDuration(settings) * 1000;
+        const totalDuration = sessionDuration * settings.sessions +
+            (settings.sessions - 1) * settings.longBreak * 60 * 1000;
+
+        if (!isActive && time === 0) {
+
+            // Start timer
+            const startTime = new Date();
+
+            setPomodoroClock(prev => ({
+                ...prev,
+                startTime,
+                endTime: prev.endTime || new Date(startTime.getTime() + totalDuration),
+                history: [
+                    ...prev.history,
+                    { state: PomoState.WORK, time: startTime, action: 'Start' }
+                ]
+            }));
+
+            nextBreak.current = Date.now() + settings.intervalDuration * 60 * 1000;
+        }
+        else if (isActive) {
+            // Pause timer
+            const currentState = pomodoroClock.history.at(-1)?.state || PomoState.INIT;
+            setPomodoroClock(prev => ({
+                ...prev,
+                history: [
+                    ...prev.history,
+                    { state: currentState, time: new Date(), action: 'Paused' }
+                ]
+            }));
+        }
+        else {
+            // Resume timer
+            const currentState = pomodoroClock.history.at(-1)?.state || PomoState.INIT;
+            const timeShift = Date.now() -
+                new Date(pomodoroClock.history.at(-1)?.time || 0).getTime();
+
+            setPomodoroClock(prev => ({
+                ...prev,
+                history: [
+                    ...prev.history,
+                    { state: currentState, time: new Date(), action: 'Resume' }
+                ],
+                endTime: (prev.endTime!.getTime() + timeShift == totalDuration + prev.endTime!.getTime()) ? new Date(prev.endTime!.getTime() + timeShift) : (new Date ( Date.now() + totalDuration - (pomodoroClock.totalTime * 1000)))
+            }));
+
+            nextBreak.current += timeShift;
         }
 
-
-    }, [time])
-    const handleChange = () => {
-        if(!isActive && time == 0){
-            pomodoroClock.startTime = new Date();
-            const timePerSession = (
-                (settings.cycles * settings.intervalDuration * 60) +  // Work intervals
-                ((settings.cycles - 1) * settings.smallBreak * 60)   // Small breaks (cycles-1)
-            ) * 1000; // Convert to milliseconds
-
-            const totalSessionTime = timePerSession * settings.sessions;
-            const longBreakTime = (settings.sessions - 1) * settings.longBreak * 60 * 1000; // Long breaks between sessions
-
-            pomodoroClock.endTime = pomodoroClock.endTime == null ?
-                new Date(pomodoroClock.startTime.getTime() + totalSessionTime + longBreakTime) :
-                pomodoroClock.endTime;
-            pomodoroClock.history.push({state: PomoState.work, time: pomodoroClock.startTime, action: 'Start'});
-            nextSmallBreak.current =  new Date().getTime() + (settings.intervalDuration * 60 * 1000)
-        }
-        else if(isActive && time > 0){
-
-            const lastState = pomodoroClock.history.length > 0 ? pomodoroClock.history.at(pomodoroClock.history.length - 1)!.state : PomoState.init;
-
-            pomodoroClock.history.push({state: lastState, time: new Date(), action: 'Paused'});
-        }
-        else if(!isActive && time > 0){
-            const lastState = pomodoroClock.history.length > 0 ? pomodoroClock.history.at(pomodoroClock.history.length - 1)!.state : PomoState.init;
-
-            pomodoroClock.history.push({state: lastState, time: new Date(), action: 'Resume'});
-            nextSmallBreak.current =  new Date().getTime() + (settings.intervalDuration * 60 * 1000)
-        }
-        setIsActive(prevState =>  !prevState);
-    }
-
-    const updateSettings = (e) => {
-        if(!isActive){
-
-            const {name, value} = e.target;
-            if(name == 'startTime' ||  name == 'endTime'){
-                setSettings({...settings, [name]: new Date(value)});
-            }
-            else {
-                setSettings({...settings, [name]: value});
-            }
-        }
-    }
-
-    const styles = {
-        container: {
-            maxWidth: 'fit-content',
-            margin: '0 auto',
-            padding: '20px',
-            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-            backgroundColor: '#f8f9fa',
-            borderRadius: '10px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            textAlign: 'center',
-            color: 'black',
-        },
-        circleContainer: {
-            position: 'relative',
-            width: '140px',
-            height: '140px',
-            margin: '20px auto',
-        },
-        circleBase: {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            borderRadius: '50%',
-            background: '#ecf0f1', // Grey background
-        },
-        circleProgress: {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            borderRadius: '50%',
-            background: `conic-gradient(#ff6347 0%, #B21807 ${progress}%, transparent ${progress}%, transparent 100%)`,
-            mask: 'radial-gradient(circle, transparent 50px, black 50px)',
-            WebkitMask: 'radial-gradient(circle, transparent 50px, black 50px)',
-        },
-        progressText: {
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            fontSize: '24px',
-            fontWeight: 'bold',
-            color: '#2c3e50',
-        }
+        setIsActive(prev => !prev);
     };
 
-    function calcTimeinHHMMSS(time: number){
-        const hrs = time >= 3600 ? Math.floor(time/3600) : 0;
-        const mins = time % 3600 != 0 ? Math.floor((time % 3600)/60) : 0;
-        const secs = (time % 3600) % 60 != 0 ? Math.floor((time % 3600) % 60) : 0;
+    // Settings update
+    const updateSettings = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (isActive) return;
 
-        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
+        const { name, value } = e.target;
+        setSettings(prev => ({
+            ...prev,
+            [name]: name === 'startTime' || name === 'endTime'
+                ? new Date(value)
+                : Number(value)
+        }));
+    };
+
+    // Current state helpers
+    const currentState = pomodoroClock.history.at(-1)?.state || PomoState.INIT;
+    const isWorking = currentState === PomoState.WORK;
+    const isResting = currentState === PomoState.REST;
+    const isFinished = currentState === PomoState.FINISHED;
+
     return (
-        <div style={styles.container}>
-            <h2>Tomato Timer</h2>
+        <div className="app-container">
+            <div className="pomodoro-card">
+                <h2 className="app-title">🍅 Tomato Timer</h2>
 
-            {!isActive && <>
-                <input type="text" name={"cycles"} value={settings.cycles} onChange={updateSettings} />
-                <input type="number" name={"intervalDuration"} value={settings.intervalDuration} onChange={updateSettings} />
-                <input type="text" name={"longBreak"} value={settings.longBreak} onChange={updateSettings} />
-                <input type="text" name={"smallBreak"} value={settings.smallBreak} onChange={updateSettings} />
-                <input type="text" name={"sessions"} value={settings.sessions} onChange={updateSettings} />
-                <input type="datetime-local" name={"startTime"} value={settings.startTime?.toISOString().slice(0, 23)} onChange={updateSettings} />
-                <input type="datetime-local" disabled={settings.startTime?.toISOString() == null} min={settings.startTime?.toISOString().slice(0, 23)} value={settings.endTime?.toISOString().slice(0, 23)} onChange={updateSettings} />
-            </>
-            }
-            <div style={styles.circleContainer}>
+                {!isActive && (
+                    <div className="settings">
+                        <h3 className="settings-title">Timer Settings</h3>
+                        <div className="settings-grid">
+                            <div className="setting-item">
+                                <label>Work Duration (min)</label>
+                                <input
+                                    type="number"
+                                    name="intervalDuration"
+                                    value={settings.intervalDuration}
+                                    onChange={updateSettings}
+                                    min="1"
+                                />
+                            </div>
 
-                <div style={styles.circleBase}></div>
+                            <div className="setting-item">
+                                <label>Short Break (min)</label>
+                                <input
+                                    type="number"
+                                    name="smallBreak"
+                                    value={settings.smallBreak}
+                                    onChange={updateSettings}
+                                    min="1"
+                                />
+                            </div>
 
-                <div style={styles.circleProgress}></div>
-                <div style={styles.progressText}>{progress.toFixed(1)}%</div>
-            </div>
+                            <div className="setting-item">
+                                <label>Long Break (min)</label>
+                                <input
+                                    type="number"
+                                    name="longBreak"
+                                    value={settings.longBreak}
+                                    onChange={updateSettings}
+                                    min="1"
+                                />
+                            </div>
 
-            <p>{pomodoroClock.history[pomodoroClock.history.length -1 ].state}</p>
-            <p>Total time: {calcTimeinHHMMSS(pomodoroClock.totalTime)} </p>
-            {pomodoroClock.history[pomodoroClock.history.length -1].state == PomoState.work && <p>Next break: {new Date(nextSmallBreak.current).toTimeString()} </p>}
-            {pomodoroClock.history[pomodoroClock.history.length -1].state == PomoState.rest ? <p>Rest remaining: {calcTimeinHHMMSS(remainingRest.current)}</p> : null}
-            {pomodoroClock.history.length>1 ? <p>Start Time: {pomodoroClock.startTime?.getHours()}:{pomodoroClock.startTime?.getMinutes()}:{pomodoroClock.startTime?.getSeconds()}</p>: null }
-            {pomodoroClock.history.length>1 ? <p>End Time: {pomodoroClock.endTime?.getHours()}:{pomodoroClock.endTime?.getMinutes()}:{pomodoroClock.endTime?.getSeconds()}</p>: null }
-            <div>
+                            <div className="setting-item">
+                                <label>Cycles per Session</label>
+                                <input
+                                    type="number"
+                                    name="cycles"
+                                    value={settings.cycles}
+                                    onChange={updateSettings}
+                                    min="1"
+                                />
+                            </div>
 
-                <button onClick={handleChange}>{ !isActive && time == 0 ? 'Start' : !isActive && time > 0 ? 'Resume' : 'Pause'}</button>
+                            <div className="setting-item">
+                                <label>Sessions</label>
+                                <input
+                                    type="number"
+                                    name="sessions"
+                                    value={settings.sessions}
+                                    onChange={updateSettings}
+                                    min="1"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="progress-section">
+                    <div className="progress-circles">
+                        <ProgressCircle progress={totalProgress} label="Total" />
+                        <ProgressCircle progress={sessionProgress} label="Session" />
+                        <ProgressCircle progress={progress} label={isResting ? "Break" : "Current"} />
+                    </div>
+                </div>
+
+                <div className="timer-info">
+                    <div className="info-grid">
+                        <div className="info-item">
+                            <span>Status:</span>
+                            <span className="status-indicator">{currentState}</span>
+                        </div>
+                        <div className="info-item">
+                            <span>Total time:</span>
+                            <span className={"info"}>{formatTime(pomodoroClock.totalTime)}</span>
+                        </div>
+                        <div className="info-item">
+                            <span>Completed cycles:</span>
+                            <span className={"info"}>{pomodoroClock.cyclesDone}</span>
+                        </div>
+                        <div className="info-item">
+                            <span>Completed sessions:</span>
+                            <span className={"info"}>{pomodoroClock.sessionsDone}</span>
+                        </div>
+
+                        {isWorking && (
+                            <div className="info-item">
+                                <span>Next break:</span>
+                                <span className={"info"}>{new Date(nextBreak.current).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                        )}
+
+                        {isResting && (
+                            <div className="info-item">
+                                <span>Rest remaining:</span>
+                                <span className={"info"}>{formatTime(remainingRest.current)}</span>
+                            </div>
+                        )}
+                        {isWorking || isResting ? ( <div className="info-item">
+                            <span>End time:</span>
+                            <span className={"info"}>{pomodoroClock.endTime!.toLocaleTimeString()}</span>
+                        </div>
+                        ) : null}
+                    </div>
+                </div>
+
+                <div className="controls">
+                    <button
+                        onClick={toggleTimer}
+                        disabled={isFinished}
+                        className={`timer-button ${isActive ? 'pause' : 'start'}`}
+                    >
+                        {!isActive && time === 0 ? 'Start Timer' :
+                            !isActive ? 'Resume Timer' : 'Pause Timer'}
+                    </button>
+                </div>
             </div>
         </div>
     );

@@ -1,77 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
-
-// Types and enums
-type Timestamp = {
-    state: PomoState;
-    time: Date;
-    action: 'Start' | 'Resume' | 'Paused' | null;
-};
-
-enum PomoState {
-    INIT = 'init',
-    WORK = 'work',
-    REST = 'rest',
-    FINISHED = 'finished',
-}
-
-type PomodoroClock = {
-    startTime: Date | null;
-    endTime: Date | null;
-    totalTime: number;
-    history: Timestamp[];
-    cyclesDone: number;
-    sessionsDone: number;
-};
-
-const DEFAULT_SETTINGS = {
-    INTERVAL_DURATION: 25,
-    S_BREAK: 5,
-    L_BREAK: 15,
-    SESSIONS: 4,
-    CYCLES: 4,
-} as const;
-
-type Settings = {
-    cycles: number;
-    sessions: number;
-    longBreak: number;
-    smallBreak: number;
-    intervalDuration: number;
-    startTime?: Date | null;
-    endTime?: Date | null;
-};
-
-// Helper functions
-const formatTime = (seconds: number): string => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return [hrs, mins, secs]
-        .map(unit => unit.toString().padStart(2, '0'))
-        .join(':');
-};
-
-const calculateSessionDuration = (settings: Settings): number => (
-    (settings.cycles * settings.intervalDuration * 60) +
-    ((settings.cycles - 1) * settings.smallBreak * 60)
-);
-
-const ProgressCircle = ({ progress, label }: { progress: number, label: string }) => (
-    <div className="circle-container">
-        <div className="circle-base" />
-        <div
-            className="circle-progress"
-            style={{
-                background: `conic-gradient(#ff6347 0%, #B21807 ${progress}%, transparent ${progress}%, transparent 100%)`
-            }}
-        />
-        <div className="progress-text">
-            {progress.toFixed(1)}%
-            <div className="progress-label">{label}</div>
-        </div>
-    </div>
-);
+import {PomoState, type Settings, type PomodoroClock} from "./types.ts";
+import {Controls, ProgressCircle, SettingsComp, Info} from "./components";
+import {DEFAULT_SETTINGS, calculateSessionDuration} from "./utils.ts";
 
 function App() {
     // State management
@@ -330,67 +261,7 @@ function App() {
             <div className="pomodoro-card">
                 <h2 className="app-title">🍅 Tomato Timer</h2>
 
-                {!isActive && (
-                    <div className="settings">
-                        <h3 className="settings-title">Timer Settings</h3>
-                        <div className="settings-grid">
-                            <div className="setting-item">
-                                <label>Work Duration (min)</label>
-                                <input
-                                    type="number"
-                                    name="intervalDuration"
-                                    value={settings.intervalDuration}
-                                    onChange={updateSettings}
-                                    min="1"
-                                />
-                            </div>
-
-                            <div className="setting-item">
-                                <label>Short Break (min)</label>
-                                <input
-                                    type="number"
-                                    name="smallBreak"
-                                    value={settings.smallBreak}
-                                    onChange={updateSettings}
-                                    min="1"
-                                />
-                            </div>
-
-                            <div className="setting-item">
-                                <label>Long Break (min)</label>
-                                <input
-                                    type="number"
-                                    name="longBreak"
-                                    value={settings.longBreak}
-                                    onChange={updateSettings}
-                                    min="1"
-                                />
-                            </div>
-
-                            <div className="setting-item">
-                                <label>Cycles per Session</label>
-                                <input
-                                    type="number"
-                                    name="cycles"
-                                    value={settings.cycles}
-                                    onChange={updateSettings}
-                                    min="1"
-                                />
-                            </div>
-
-                            <div className="setting-item">
-                                <label>Sessions</label>
-                                <input
-                                    type="number"
-                                    name="sessions"
-                                    value={settings.sessions}
-                                    onChange={updateSettings}
-                                    min="1"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {!isActive && <SettingsComp settings={settings} updateSettings={updateSettings} />}
 
                 <div className="progress-section">
                     <div className="progress-circles">
@@ -400,56 +271,9 @@ function App() {
                     </div>
                 </div>
 
-                <div className="timer-info">
-                    <div className="info-grid">
-                        <div className="info-item">
-                            <span>Status:</span>
-                            <span className="status-indicator">{currentState}</span>
-                        </div>
-                        <div className="info-item">
-                            <span>Total time:</span>
-                            <span className={"info"}>{formatTime(pomodoroClock.totalTime)}</span>
-                        </div>
-                        <div className="info-item">
-                            <span>Completed cycles:</span>
-                            <span className={"info"}>{pomodoroClock.cyclesDone}</span>
-                        </div>
-                        <div className="info-item">
-                            <span>Completed sessions:</span>
-                            <span className={"info"}>{pomodoroClock.sessionsDone}</span>
-                        </div>
+                {<Info pomodoroClock={pomodoroClock} currentState={currentState} nextBreak={nextBreak.current} remainingRest={remainingRest.current} isResting={isResting} isWorking={isWorking} />}
+                {<Controls time={time} toggleTimer={toggleTimer} isActive={isActive} isFinished={isFinished}/>}
 
-                        {isWorking && (
-                            <div className="info-item">
-                                <span>Next break:</span>
-                                <span className={"info"}>{new Date(nextBreak.current).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                            </div>
-                        )}
-
-                        {isResting && (
-                            <div className="info-item">
-                                <span>Rest remaining:</span>
-                                <span className={"info"}>{formatTime(remainingRest.current)}</span>
-                            </div>
-                        )}
-                        {isWorking || isResting ? ( <div className="info-item">
-                            <span>End time:</span>
-                            <span className={"info"}>{pomodoroClock.endTime!.toLocaleTimeString()}</span>
-                        </div>
-                        ) : null}
-                    </div>
-                </div>
-
-                <div className="controls">
-                    <button
-                        onClick={toggleTimer}
-                        disabled={isFinished}
-                        className={`timer-button ${isActive ? 'pause' : 'start'}`}
-                    >
-                        {!isActive && time === 0 ? 'Start Timer' :
-                            !isActive ? 'Resume Timer' : 'Pause Timer'}
-                    </button>
-                </div>
             </div>
         </div>
     );

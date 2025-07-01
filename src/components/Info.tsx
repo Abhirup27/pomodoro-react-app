@@ -1,5 +1,6 @@
 import {type PomodoroClock, PomoState} from "../types.ts";
 import {formatTime} from "../utils.ts";
+import InfoItem from "./InfoItem.tsx";
 
 interface InfoProps {
     pomodoroClock: PomodoroClock,
@@ -15,41 +16,13 @@ function Info ({currentState, pomodoroClock, nextBreak, remainingRest, isResting
     return (
         <div className="timer-info">
             <div className="info-grid">
-                <div className="info-item">
-                    <span>Status:</span>
-                    <span className="status-indicator">{currentState}</span>
-                </div>
-                <div className="info-item">
-                    <span>Total time:</span>
-                    <span className={"info"}>{formatTime(pomodoroClock.totalTime)}</span>
-                </div>
-                <div className="info-item">
-                    <span>Completed cycles:</span>
-                    <span className={"info"}>{pomodoroClock.cyclesDone}</span>
-                </div>
-                <div className="info-item">
-                    <span>Completed sessions:</span>
-                    <span className={"info"}>{pomodoroClock.sessionsDone}</span>
-                </div>
-
-                {isWorking && (
-                    <div className="info-item">
-                        <span>Next break:</span>
-                        <span className={"info"}>{new Date(nextBreak).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                    </div>
-                )}
-
-                {isResting && (
-                    <div className="info-item">
-                        <span>Rest remaining:</span>
-                        <span className={"info"}>{formatTime(remainingRest)}</span>
-                    </div>
-                )}
-                {isWorking || isResting ? ( <div className="info-item">
-                        <span>End time:</span>
-                        <span className={"info"}>{pomodoroClock.endTime!.toLocaleTimeString()}</span>
-                    </div>
-                ) : null}
+                <InfoItem className={"status-indicator"}>{['Status', currentState]}</InfoItem>
+                <InfoItem className={"info"}>{['Total time', formatTime(pomodoroClock.totalTime)]}</InfoItem>
+                <InfoItem >{['Completed cycles', pomodoroClock.cyclesDone.toString()]}</InfoItem>
+                <InfoItem >{['Completed sessions', pomodoroClock.sessionsDone.toString()]}</InfoItem>
+                {isWorking && <InfoItem >{['Next break', new Date(nextBreak).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})]}</InfoItem>}
+                {isResting && <InfoItem >{['Rest Remaining', formatTime(remainingRest)]}</InfoItem>}
+                {isWorking || isResting ? <InfoItem >{['End time', pomodoroClock.endTime!.toLocaleTimeString()]}</InfoItem>: null}
             </div>
         </div>
     )

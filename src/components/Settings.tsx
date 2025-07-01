@@ -1,68 +1,29 @@
 import type {Settings} from "../types.ts";
+import SettingItem from "./SettingItem.tsx";
 
 interface SettingsProp {
     settings: Settings,
-    updateSettings: (event: React.ChangeEvent<HTMLInputElement>) => void,
+    // These props are passed to prevent the user from setting a value lower than the amount that is already spent in a current state.
+    // If for example the state is "work" and 5 minutes have gone, then the user should not be able to set a value less than 5.
+    minInterval?: number,
+    minSRest?: number,
+    minLRest?: number,
+    minCycles?: number,
+    minSessions?: number,
+    [key: string ] : number| undefined |Settings | {(e: React.ChangeEvent<HTMLInputElement>): void}
+    //onChange: (event: React.ChangeEvent<HTMLInputElement>) => void,
 }
-function SettingsComp({settings, updateSettings}: SettingsProp) {
+function SettingsComp({settings,minInterval, ...props}: SettingsProp) {
     return (
         <div className="settings">
             <h3 className="settings-title">Timer Settings</h3>
             <div className="settings-grid">
-                <div className="setting-item">
-                    <label>Work Duration (min)</label>
-                    <input
-                        type="number"
-                        name="intervalDuration"
-                        value={settings.intervalDuration}
-                        onChange={updateSettings}
-                        min="1"
-                    />
-                </div>
-
-                <div className="setting-item">
-                    <label>Short Break (min)</label>
-                    <input
-                        type="number"
-                        name="smallBreak"
-                        value={settings.smallBreak}
-                        onChange={updateSettings}
-                        min="1"
-                    />
-                </div>
-
-                <div className="setting-item">
-                    <label>Long Break (min)</label>
-                    <input
-                        type="number"
-                        name="longBreak"
-                        value={settings.longBreak}
-                        onChange={updateSettings}
-                        min="1"
-                    />
-                </div>
-
-                <div className="setting-item">
-                    <label>Cycles per Session</label>
-                    <input
-                        type="number"
-                        name="cycles"
-                        value={settings.cycles}
-                        onChange={updateSettings}
-                        min="1"
-                    />
-                </div>
-
-                <div className="setting-item">
-                    <label>Sessions</label>
-                    <input
-                        type="number"
-                        name="sessions"
-                        value={settings.sessions}
-                        onChange={updateSettings}
-                        min="1"
-                    />
-                </div>
+                {/*{...props} is same as onChange={onChange}*/}
+                <SettingItem name={"intervalDuration"} value={settings.intervalDuration } min={minInterval ?? 1} {...props} >Work Duration (min)</SettingItem>
+                <SettingItem name={"smallBreak"} value={settings.smallBreak} {...props} >Short Break (min)</SettingItem>
+                <SettingItem name={"longBreak"} value={settings.longBreak} {...props} >Long Break (min)</SettingItem>
+                <SettingItem name={"cycles"} value={settings.cycles} {...props} >Cycles per Session</SettingItem>
+                <SettingItem name={"sessions"} value={settings.sessions} {...props}>Sessions</SettingItem>
             </div>
         </div>
     )

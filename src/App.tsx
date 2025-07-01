@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import {useEffect, useRef, useState} from 'react';
 import './App.css';
-import {PomoState, type Settings, type PomodoroClock} from "./types.ts";
-import {Controls, ProgressCircle, SettingsComp, Info} from "./components";
-import {DEFAULT_SETTINGS, calculateSessionDuration} from "./utils.ts";
+import {type PomodoroClock, PomoState, type Settings} from "./types.ts";
+import {Controls, Info, ProgressCircle, SettingsComp} from "./components";
+import {calculateSessionDuration, DEFAULT_SETTINGS} from "./utils.ts";
 
 function App() {
     // State management
@@ -226,14 +226,15 @@ function App() {
                 ...prev,
                 history: [
                     ...prev.history,
-                    { state: currentState, time: new Date(), action: 'Resume' }
+                    {state: currentState, time: new Date(), action: 'Resume'}
                 ],
-                endTime: (prev.endTime!.getTime() + timeShift == totalDuration + prev.endTime!.getTime()) ? new Date(prev.endTime!.getTime() + timeShift) : (new Date ( Date.now() + totalDuration - (pomodoroClock.totalTime * 1000)))
+                endTime: (prev.endTime!.getTime() + timeShift == totalDuration + prev.endTime!.getTime()) ? new Date(prev.endTime!.getTime() + timeShift) : (new Date(Date.now() + totalDuration - (pomodoroClock.totalTime * 1000)))
             }));
-
-            nextBreak.current += timeShift;
+            if (currentState == PomoState.WORK) {
+                 console.log(nextBreak.current + timeShift == (settings.intervalDuration *60) - time + timeShift)
+                nextBreak.current = nextBreak.current + timeShift;
+             }
         }
-
         setIsActive(prev => !prev);
     };
 
@@ -242,12 +243,52 @@ function App() {
         if (isActive) return;
 
         const { name, value } = e.target;
+        console.log(value);
+        let validatedValue : number;
+        //validate data
+        switch (name) {
+            case 'intervalDuration':
+                if(currentState === PomoState.WORK){
+                    validatedValue =  Math.max((time/60), parseFloat(value));
+                    console.log(validatedValue);
+                    break;
+                }
+                validatedValue = parseInt(value, 10);
+                break;
+            case 'smallBreak':
+                if(currentState === PomoState.REST && pomodoroClock.cyclesDone < settings.cycles){
+                    validatedValue =  Math.max((time/60), parseFloat(value));
+                    break;
+                }
+                validatedValue = parseInt(value, 10);
+                break;
+            case 'longBreak':
+                if(currentState === PomoState.REST && pomodoroClock.cyclesDone >= settings.cycles) {
+                    validatedValue =  Math.max((time/60), parseFloat(value));
+                    break;
+                }
+                validatedValue = parseInt(value, 10);
+                break;
+            case 'cycles':
+                validatedValue =  Math.max(pomodoroClock.cyclesDone, parseInt(value, 10));
+                break;
+            case 'sessions':
+                validatedValue = Math.max(pomodoroClock.sessionsDone, parseInt(value, 10));
+                break;
+            case 'startTime':
+                break;
+            case 'endTime':
+                 break;
+            default:
+                validatedValue = parseInt(value, 10);
+                break;
+        }
+        console.log(validatedValue);
         setSettings(prev => ({
             ...prev,
             [name]: name === 'startTime' || name === 'endTime'
                 ? new Date(value)
-                : Number(value)
-        }));
+                :  validatedValue  }));
     };
 
     // Current state helpers
@@ -261,7 +302,7 @@ function App() {
             <div className="pomodoro-card">
                 <h2 className="app-title">🍅 Tomato Timer</h2>
 
-                {!isActive && <SettingsComp settings={settings} updateSettings={updateSettings} />}
+                {!isActive && <SettingsComp settings={settings} onChange={updateSettings} minInterval={currentState == PomoState.WORK ? (time/60) : undefined}/>}
 
                 <div className="progress-section">
                     <div className="progress-circles">

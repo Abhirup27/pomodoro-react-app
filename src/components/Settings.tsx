@@ -8,22 +8,22 @@ interface SettingsProp {
     minInterval?: number,
     minSRest?: number,
     minLRest?: number,
-    minCycles?: number,
-    minSessions?: number,
+    minCycles: number,
+    minSessions: number,
     [key: string ] : number| undefined |Settings | {(e: React.ChangeEvent<HTMLInputElement>): void}
     //onChange: (event: React.ChangeEvent<HTMLInputElement>) => void,
 }
-function SettingsComp({settings,minInterval, ...props}: SettingsProp) {
+function SettingsComp({settings,minInterval,minSRest,minLRest, minCycles, minSessions, ...props}: SettingsProp) {
     return (
         <div className="settings">
             <h3 className="settings-title">Timer Settings</h3>
             <div className="settings-grid">
                 {/*{...props} is same as onChange={onChange}*/}
                 <SettingItem name={"intervalDuration"} value={settings.intervalDuration } min={minInterval ?? 1} {...props} >Work Duration (min)</SettingItem>
-                <SettingItem name={"smallBreak"} value={settings.smallBreak} {...props} >Short Break (min)</SettingItem>
-                <SettingItem name={"longBreak"} value={settings.longBreak} {...props} >Long Break (min)</SettingItem>
-                <SettingItem name={"cycles"} value={settings.cycles} {...props} >Cycles per Session</SettingItem>
-                <SettingItem name={"sessions"} value={settings.sessions} {...props}>Sessions</SettingItem>
+                <SettingItem name={"smallBreak"} value={settings.smallBreak} min={minSRest ?? 1} {...props} >Short Break (min)</SettingItem>
+                <SettingItem name={"longBreak"} value={settings.longBreak} min={minLRest ?? 1} {...props} >Long Break (min)</SettingItem>
+                <SettingItem name={"cycles"} value={settings.cycles} min={minCycles ?? 1} {...props} >Cycles per Session</SettingItem>
+                <SettingItem name={"sessions"} value={settings.sessions} min={minSessions ?? 1} {...props}>Sessions</SettingItem>
             </div>
         </div>
     )

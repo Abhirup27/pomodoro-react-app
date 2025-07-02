@@ -35,6 +35,13 @@ function App() {
     const nextBreak = useRef<number>(0);
     const remainingRest = useRef<number>(0);
     const totalSessionTime = useRef<number>(0);
+    const minValues = useRef({
+        minInterval: 1,
+        minSRest: 1,
+        minLRest: 1,
+        minCycles: 1,
+        minSessions: 1,
+    });
     // Timer effect
     useEffect(() => {
         let interval: number | undefined;
@@ -102,11 +109,13 @@ function App() {
 
                     nextBreak.current = Date.now() + intervalSec * 1000;
                     setTime(0);
+                    minValues.current.minInterval = 1;
                     setProgress(0);
                     break;
                 }
 
                 setProgress((time / intervalSec) * 100);
+                minValues.current.minInterval = time/60;
                 updateSessionProgress();
                 updateTotalProgress();
                 break;
@@ -125,13 +134,16 @@ function App() {
                             history: newHistory,
                             cyclesDone: prev.cyclesDone + 1
                         }));
-
+                        nextBreak.current = Date.now() + settings.intervalDuration * 60 * 1000;
+                        minValues.current.minCycles++;
                         setTime(0);
+                        minValues.current.minSRest = 1;
                         setProgress(0);
                         break;
                     }
 
                     setProgress((time / smallBreakSec) * 100);
+                    minValues.current.minSRest = time/60;
                     updateSessionProgress();
                     updateTotalProgress();
                     remainingRest.current = smallBreakSec - time;
@@ -162,14 +174,17 @@ function App() {
                             cyclesDone: 0,
                             sessionsDone: prev.sessionsDone + 1
                         }));
-
+                        minValues.current.minCycles = 1;
+                        minValues.current.minSessions++;
                         setTime(0);
+                        minValues.current.minLRest = 1;
                         setSessionProgress(0);
                         setProgress(0);
                         break;
                     }
 
                     setProgress((time / longBreakSec) * 100);
+                    minValues.current.minLRest = time/60;
                     setSessionProgress(0);
                     updateTotalProgress();
                     remainingRest.current = longBreakSec - time;
@@ -283,7 +298,7 @@ function App() {
                 validatedValue = parseInt(value, 10);
                 break;
         }
-        console.log(validatedValue);
+        //console.log(validatedValue);
         setSettings(prev => ({
             ...prev,
             [name]: name === 'startTime' || name === 'endTime'
@@ -296,13 +311,12 @@ function App() {
     const isWorking = currentState === PomoState.WORK;
     const isResting = currentState === PomoState.REST;
     const isFinished = currentState === PomoState.FINISHED;
-
     return (
         <div className="app-container">
             <div className="pomodoro-card">
                 <h2 className="app-title">🍅 Tomato Timer</h2>
 
-                {!isActive && <SettingsComp settings={settings} onChange={updateSettings} minInterval={currentState == PomoState.WORK ? (time/60) : undefined}/>}
+                {!isActive && <SettingsComp settings={settings} onChange={updateSettings} {...minValues.current}/>}
 
                 <div className="progress-section">
                     <div className="progress-circles">

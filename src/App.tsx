@@ -15,7 +15,8 @@ function App() {
         startTime: null,
         endTime: null,
     });
-
+    const [_state, setState] = useState();
+    const [_isInitialized, setIsInitialized] = useState(false);
     const [progress, setProgress] = useState(0);
     const [sessionProgress, setSessionProgress] = useState(0);
     const [totalProgress, setTotalProgress] = useState(0);
@@ -42,6 +43,23 @@ function App() {
         minCycles: 1,
         minSessions: 1,
     });
+
+    useEffect(() => {
+       chrome.runtime.sendMessage({ action: 'GET_STATE' }).then((value) => {
+           setState(value);
+            setIsInitialized(true);
+       });
+
+        const storageListener = (changes: {[p: string]: chrome.storage.StorageChange},  area:string) => {
+            if (area === 'local' && changes.pomodoroState) {
+                setState(changes.pomodoroState.newValue);
+            }
+        };
+
+        chrome.storage.onChanged.addListener(storageListener);
+        return () => chrome.storage.onChanged.removeListener(storageListener);
+    }, []);
+
     // Timer effect
     useEffect(() => {
         let interval: number | undefined;
@@ -199,6 +217,9 @@ function App() {
 
     // Timer control
     const toggleTimer = () => {
+        chrome.runtime.sendMessage({ action: 'TOGGLE_TIMER' }).then((value) => {
+            console.log(value);
+        })
         const sessionDuration = calculateSessionDuration(settings) * 1000;
         const totalDuration = sessionDuration * settings.sessions +
             (settings.sessions - 1) * settings.longBreak * 60 * 1000;
@@ -258,7 +279,7 @@ function App() {
         if (isActive) return;
 
         const { name, value } = e.target;
-        console.log(value);
+
         let validatedValue : number;
         //validate data
         switch (name) {
@@ -304,6 +325,13 @@ function App() {
             [name]: name === 'startTime' || name === 'endTime'
                 ? new Date(value)
                 :  validatedValue  }));
+        chrome.runtime.sendMessage({
+            action: 'UPDATE_SETTINGS',
+            settings: settings
+        }).then((value) => {
+
+            console.log(value);
+        })
     };
 
     // Current state helpers

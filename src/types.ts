@@ -29,3 +29,17 @@ export type Settings = {
     startTime?: Date | null;
     endTime?: Date | null;
 };
+
+export type BackgroundState = {
+    pomodoroClock: PomodoroClock;
+    settings: Settings;
+    isActive: boolean;
+    time: number;
+    totalSessionTime: number;
+    progress: number;
+    sessionProgress: number;
+    totalProgress: number;
+    nextBreak: number;
+    remainingRest: number;
+    minValues: {minInterval: number, minSRest: number, minLRest: number, minCycles: number, minSessions: number};
+}

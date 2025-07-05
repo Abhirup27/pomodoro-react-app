@@ -5,10 +5,17 @@
   "manifest_version": 3,
   "action": {
     "default_popup": "index.html",
-    "default_icon": "hello_extensions.png"
+    "default_icon": "128.png"
   },
   "background": {
-    "service_worker": "./background.js"
+    "service_worker": "./background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "16.png",
+    "32": "32.png",
+    "48": "48.png",
+    "128": "128.png"
   },
   "permissions": ["storage"]
 }

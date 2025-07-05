@@ -7,11 +7,12 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: './index.html',
-        background: './src/extension/background.ts'
+        background: './src/extension/background.ts',
+        types: './src/types.ts',
       },
       output: {
         entryFileNames: (chunkInfo) => {
-          return chunkInfo.name === 'background' ? 'background.js' : '[name]-[hash].js'
+          return chunkInfo.name === 'background' || chunkInfo.name === 'types' ? '[name].js' : '[name]-[hash].js'
         }
       }
     }

@@ -1,6 +1,6 @@
 //let timerActive: boolean = false;
 import {PomoState, type PomodoroClock, type Settings, type BackgroundState} from "../types.ts";
-import {DEFAULT_SETTINGS} from "../utils.ts";
+import {DEFAULT_SETTINGS, parseBackgroundState} from "../utils.ts";
 
 let timerInterval: number | undefined;
 let state: BackgroundState = {
@@ -43,7 +43,8 @@ let state: BackgroundState = {
 chrome.storage.local.get('pomodoroState', (data: { [p: string]: BackgroundState}) => {
 
     if (data.pomodoroState) {
-        Object.assign(state, data.pomodoroState);
+       const parsedState = parseBackgroundState(data.pomodoroState);
+        Object.assign(state, parsedState);
         if (state.isActive) startTimer();
     } else {
         state = initState();
@@ -77,6 +78,7 @@ function updateProgress() {
         const completedBlocks = state.pomodoroClock.sessionsDone *
             (state.totalSessionTime + longBreakSec);
         let timeInSession = state.pomodoroClock.totalTime - completedBlocks;
+        console.log(timeInSession);
         if (timeInSession < 0) timeInSession = 0;
         state.sessionProgress = Math.min(100, (timeInSession / state.totalSessionTime) * 100);
     };
@@ -104,6 +106,7 @@ function updateProgress() {
                     state.pomodoroClock.history.push({ state: PomoState.WORK, time: new Date(), action: null });
 
                     state.nextBreak = Date.now() + state.settings.intervalDuration * 60 * 1000;
+                    state.pomodoroClock.cyclesDone++;
                     state.minValues.minCycles++;
                     state.time = 0;
                     state.minValues.minSRest = 1;
@@ -162,10 +165,11 @@ function updateProgress() {
 
 function saveState() {
     console.log(state);
-    chrome.storage.local.set({ pomodoroState: state });
+    chrome.storage.local.set({ pomodoroState: {...state, pomodoroClock: {...state.pomodoroClock, startTime: state.pomodoroClock.startTime?.getTime(), endTime: state.pomodoroClock.endTime?.getTime(), history: state.pomodoroClock.history.map((entry: {time: Date, state: PomoState, action: string | null}) => ({...entry, time: entry.time.getTime()}))}, settings: {...state.settings, startTime: state.pomodoroClock.startTime?.getTime(), endTime: state.pomodoroClock.endTime?.getTime()}} });
 }
 function deleteAll() {
     chrome.storage.local.clear();
+    clearInterval(timerInterval)
 }
 const calculateSessionDuration = (): number => (
     (state.settings.cycles * state.settings.intervalDuration * 60) +
@@ -210,7 +214,7 @@ function toggleTimer() {
             console.log('in init');
             state.pomodoroClock.startTime = new Date();
             state.totalSessionTime = calculateSessionDuration();
-            state.pomodoroClock.history.push({ state: PomoState.WORK, time: new Date(), action: null });
+            state.pomodoroClock.history.push({ state: PomoState.WORK, time: new Date(), action: 'Start' });
             state.pomodoroClock.endTime = new Date(state.pomodoroClock.startTime.getTime() + totalDuration);
             state.nextBreak = Date.now() + state.settings.intervalDuration * 60 * 1000;
             console.log('saving state')
@@ -218,22 +222,23 @@ function toggleTimer() {
             // ... other initialization
         } else if (state.isActive){
             const currentState = state.pomodoroClock.history.at(-1)?.state || PomoState.INIT;
-            state.pomodoroClock.history.push({ state: currentState, time: new Date(), action: null });
+            state.pomodoroClock.history.push({ state: currentState, time: new Date(), action: 'Resume' });
         } else {
             state.totalSessionTime = calculateSessionDuration();
             const currentState = state.pomodoroClock.history.at(-1)?.state || PomoState.INIT;
             const timeShift = Date.now() - new Date(state.pomodoroClock.history.at(-1)!.time).getTime();
             state.pomodoroClock.history.push({ state: currentState,
-                time: (state.pomodoroClock.endTime!.getTime() + timeShift == totalDuration + state.pomodoroClock.endTime!.getTime()) ? new Date(state.pomodoroClock.endTime!.getTime() + timeShift) : (new Date(Date.now() + totalDuration - (state.pomodoroClock.totalTime * 1000))),
-                action: null });
+                time:new Date(),
+                action: 'Paused' });
+            state.pomodoroClock.endTime = (state.pomodoroClock.endTime!.getTime() + timeShift == totalDuration + state.pomodoroClock.endTime!.getTime()) ? new Date(state.pomodoroClock.endTime!.getTime() + timeShift) : (new Date(Date.now() + totalDuration - (state.pomodoroClock.totalTime * 1000)))
             if(currentState === PomoState.WORK) {
-                state.nextBreak = state.nextBreak + timeShift;
+                state.nextBreak = ((state.settings.intervalDuration * 60 - state.time) * 1000) + Date.now();
             }
-            saveState();
+
         }
 
     state.isActive = !state.isActive;
-
+    saveState();
     //clearInterval(timerInterval);
 }
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse: (response?: object) => void) => {
@@ -246,7 +251,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse: (response?
         case 'UPDATE_SETTINGS':
             console.log('in update settings');
             Object.assign(state.settings, request.settings);
-
+            state.totalSessionTime = calculateSessionDuration();
             saveState();
             sendResponse(state);
             break;

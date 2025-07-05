@@ -1,34 +1,15 @@
 import { useEffect, useState } from 'react';
 import './App.css';
-import {type BackgroundState, PomoState, type Timestamp} from "./types.ts";
+import {type BackgroundState, PomoState} from "./types.ts";
 import { Controls, Info, ProgressCircle, SettingsComp } from "./components";
+import {parseBackgroundState} from "./utils.ts";
 
 
 function App() {
     const [state, setState] = useState<BackgroundState | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
 
-    function parseBackgroundState(storedState: any): BackgroundState {
-        if (!storedState) return storedState;
 
-        return {
-            ...storedState,
-            pomodoroClock: {
-                ...storedState.pomodoroClock,
-                startTime: storedState.pomodoroClock.startTime ? new Date(storedState.pomodoroClock.startTime) : null,
-                endTime: storedState.pomodoroClock.endTime ? new Date(storedState.pomodoroClock.endTime) : null,
-                history: storedState.pomodoroClock.history.map((entry: Timestamp) => ({
-                    ...entry,
-                    time: new Date(entry.time)
-                }))
-            },
-            settings: {
-                ...storedState.settings,
-                startTime: storedState.settings.startTime ? new Date(storedState.settings.startTime) : null,
-                endTime: storedState.settings.endTime ? new Date(storedState.settings.endTime) : null
-            }
-        };
-    }
     useEffect(() => {
         // Fetch initial state from background
         console.log('fetching initial state');

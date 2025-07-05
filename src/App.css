@@ -1,107 +1,148 @@
-body {
+* {
   margin: 0;
   padding: 0;
-  width: 800px;
-  height: 800px;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
+}
+
+body {
+  width: 360px;
+  height: 600px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  overflow: hidden;
 }
 
 .app-container {
   width: 100%;
   height: 100%;
-  max-height: 800px;
-  max-width: 800px;
-  padding: 20px;
-  box-sizing: border-box;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
 .pomodoro-card {
-  background-color: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  padding: 30px;
-  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .app-title {
   text-align: center;
   color: #e74c3c;
-  margin-bottom: 25px;
-  font-size: 2.2rem;
+  margin-bottom: 12px;
+  font-size: 1.3rem;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
 }
 
+/* Settings Section */
 .settings {
-  background-color: #f8f9fa;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 25px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  background: rgba(248, 249, 250, 0.8);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .settings-title {
   text-align: center;
   color: #2c3e50;
-  margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 15px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .setting-item {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .setting-item label {
-  font-size: 0.9rem;
-  margin-bottom: 6px;
+  font-size: 0.7rem;
+  margin-bottom: 3px;
   color: #555;
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .setting-item input {
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.3s;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.8);
+  transition: all 0.2s ease;
+  width: 100%;
+  min-width: 0;
 }
 
 .setting-item input:focus {
   border-color: #e74c3c;
   outline: none;
-  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+  background: white;
 }
 
+button {
+  padding: 6px 12px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: 6px;
+  background: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: rgba(231, 76, 60, 0.2);
+  border-color: rgba(231, 76, 60, 0.5);
+}
+
+/* Progress Section */
 .progress-section {
-  margin: 30px 0;
+  margin: 12px 0;
+  flex-shrink: 0;
 }
 
 .progress-circles {
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 40px;
-  margin: 20px 0;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
 
 .circle-container {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 75px;
+  height: 75px;
+  flex: 1;
 }
 
 .circle-base {
@@ -111,8 +152,8 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #f1f2f6;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+  background: rgba(241, 242, 246, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.8);
 }
 
 .circle-progress {
@@ -122,8 +163,8 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  mask: radial-gradient(circle, transparent 60px, black 60px);
-  -webkit-mask: radial-gradient(circle, transparent 60px, black 60px);
+  mask: radial-gradient(circle, transparent 26px, black 26px);
+  -webkit-mask: radial-gradient(circle, transparent 26px, black 26px);
 }
 
 .progress-text {
@@ -131,8 +172,8 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 28px;
-  font-weight: bold;
+  font-size: 10px;
+  font-weight: 600;
   color: #2c3e50;
   text-align: center;
   display: flex;
@@ -141,30 +182,37 @@ body {
 }
 
 .progress-label {
-  font-size: 14px;
-  font-weight: normal;
+  font-size: 8px;
+  font-weight: 500;
   color: #7f8c8d;
-  margin-top: 5px;
+  margin-top: 1px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
+/* Timer Info */
 .timer-info {
-  background-color: #f8f9fa;
-  border-radius: 12px;
-  padding: 20px;
-  margin: 25px 0;
+  background: rgba(248, 249, 250, 0.8);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  flex-grow: 1;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #eee;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 0.8rem;
 }
 
 .info-item:last-child {
@@ -174,69 +222,80 @@ body {
 .info-item span:first-child {
   font-weight: 500;
   color: #555;
-}
-.info-item .info {
-  font-weight: 350;
-  color: #555;
-}
-.status-indicator {
-  font-weight: bold;
-  color: #e74c3c;
-  text-transform: capitalize;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 0.7rem;
 }
 
+.info-item .info {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.85rem;
+}
+
+.status-indicator {
+  font-weight: 600;
+  color: #e74c3c;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 0.8rem;
+}
+
+/* Controls */
 .controls {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  margin-top: auto;
+  padding-top: 12px;
 }
 
 .timer-button {
-  padding: 14px 35px;
-  font-size: 1.1rem;
+  padding: 12px 24px;
+  font-size: 0.9rem;
   font-weight: 600;
   border: none;
-  border-radius: 50px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  width: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .timer-button.start {
-  background: linear-gradient(to right, #2ecc71, #27ae60);
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
   color: white;
 }
 
 .timer-button.pause {
-  background: linear-gradient(to right, #e74c3c, #c0392b);
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
   color: white;
 }
 
 .timer-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.timer-button:active {
+  transform: translateY(0);
 }
 
 .timer-button:disabled {
   background: #95a5a6;
   cursor: not-allowed;
   transform: none;
-  box-shadow: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .pomodoro-card {
-    padding: 20px;
-  }
-
-  .progress-circles {
-    flex-direction: column;
-    align-items: center;
-    gap: 30px;
-  }
-
-  .app-title {
-    font-size: 1.8rem;
-  }
+/* Loading states */
+.app-container > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 1rem;
+  color: #2c3e50;
+  font-weight: 500;
 }

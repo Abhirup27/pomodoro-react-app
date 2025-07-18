@@ -44,8 +44,13 @@ chrome.storage.local.get('pomodoroState', (data: { [p: string]: BackgroundState}
 
     if (data.pomodoroState) {
        const parsedState = parseBackgroundState(data.pomodoroState);
-        Object.assign(state, parsedState);
-        if (state.isActive) startTimer();
+       if(Date.now() > parsedState.pomodoroClock.endTime!.getTime()){
+           state = initState();
+       }
+       else {
+           Object.assign(state, parsedState);
+           if (state.isActive) startTimer();
+       }
     } else {
         state = initState();
     }
